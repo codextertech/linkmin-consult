@@ -287,7 +287,7 @@ export default function Home() {
   return (
     <main className="min-h-screen px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 rounded-[32px] border border-white/60 bg-white/90 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.12)] backdrop-blur sm:p-8 lg:p-10">
-        <section className="space-y-4 rounded-[28px] bg-gradient-to-r from-[#0f766e] via-[#115e59] to-[#1f2937] p-5 text-white sm:p-8">
+        <section className="space-y-4 rounded-lg bg-gradient-to-r from-[#0f766e] via-[#115e59] to-[#1f2937] p-5 text-white sm:p-8">
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-100">
             Linkmi Nigeria
           </p>
@@ -306,29 +306,31 @@ export default function Home() {
         <form className="space-y-8" onSubmit={handleSubmit}>
           <section className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-700">First Name</span>
+              <span className="text-sm font-medium text-slate-700">First Name <span className="text-red-600">*</span></span>
               <input
                 className="field-input"
                 name="firstName"
                 placeholder="Enter your first name"
                 value={formState.firstName}
                 onChange={handleInputChange}
+                required
               />
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-700">Last Name</span>
+              <span className="text-sm font-medium text-slate-700">Last Name <span className="text-red-600">*</span></span>
               <input
                 className="field-input"
                 name="lastName"
                 placeholder="Enter your last name"
                 value={formState.lastName}
                 onChange={handleInputChange}
+                required
               />
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-700">Phone Number</span>
+              <span className="text-sm font-medium text-slate-700">Phone Number <span className="text-red-600">*</span></span>
               <input
                 className="field-input"
                 type="tel"
@@ -337,12 +339,13 @@ export default function Home() {
                 placeholder="Enter your phone number"
                 value={formState.phoneNumber}
                 onChange={handleInputChange}
+                required
               />
             </label>
 
             <div className="space-y-3">
               <label className="space-y-2">
-                <span className="text-sm font-medium text-slate-700">WhatsApp Number</span>
+                <span className="text-sm font-medium text-slate-700">WhatsApp Number <span className="text-red-600">*</span></span>
                 <input
                   className="field-input"
                   type="tel"
@@ -352,6 +355,7 @@ export default function Home() {
                   value={formState.whatsappNumber}
                   onChange={handleInputChange}
                   disabled={sameAsPhone}
+                  required
                 />
               </label>
               <label className="inline-flex items-center gap-3 text-sm text-slate-600">
@@ -366,7 +370,7 @@ export default function Home() {
             </div>
 
             <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-700">Email</span>
+              <span className="text-sm font-medium text-slate-700">Email <span className="text-red-600">*</span></span>
               <input
                 className="field-input"
                 type="email"
@@ -375,22 +379,24 @@ export default function Home() {
                 placeholder="Enter your email address"
                 value={formState.email}
                 onChange={handleInputChange}
+                required
               />
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-700">Country of Residence</span>
+              <span className="text-sm font-medium text-slate-700">Country of Residence <span className="text-red-600">*</span></span>
               <input
                 className="field-input"
                 name="countryOfResidence"
                 placeholder="Enter your country of residence"
                 value={formState.countryOfResidence}
                 onChange={handleInputChange}
+                required
               />
             </label>
           </section>
 
-          <section className="space-y-5 rounded-[28px] border border-slate-200 bg-slate-50/80 p-5 sm:p-6">
+          <section className="space-y-5 rounded-lg border border-slate-200 bg-slate-50/80 p-5 sm:p-6">
             <div className="space-y-2">
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-teal-800">
                 Medical Condition
@@ -405,19 +411,20 @@ export default function Home() {
             </div>
 
             <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-700">Title</span>
+              <span className="text-sm font-medium text-slate-700">Title <span className="text-red-600">*</span></span>
               <input
                 className="field-input"
                 name="medicalCondition"
                 placeholder="State the medical condition"
                 value={formState.medicalCondition}
                 onChange={handleInputChange}
+                required
               />
             </label>
 
             <label className="mt-4 space-y-2">
               <span className="text-sm font-medium text-slate-700">
-                Brief descriptions of Medication condition
+                Brief descriptions of Medication condition <span className="text-red-600">*</span>
               </span>
               <textarea
                 className="field-input min-h-56 resize-y"
@@ -425,6 +432,7 @@ export default function Home() {
                 placeholder="Provide a detailed description of your medical condition"
                 value={formState.medicalDescription}
                 onChange={handleInputChange}
+                required
               />
             </label>
             <p className="text-right text-sm text-slate-500">
@@ -432,7 +440,7 @@ export default function Home() {
             </p>
           </section>
 
-          <section className="space-y-5 rounded-[28px] border border-dashed border-teal-200 bg-teal-50/70 p-5 sm:p-6">
+          <section className="space-y-5 rounded-lg border border-dashed border-teal-200 bg-teal-50/70 p-5 sm:p-6">
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-slate-900">Upload Medical Reports</h2>
               <p className="text-sm leading-6 text-slate-600">
@@ -441,7 +449,7 @@ export default function Home() {
               </p>
             </div>
 
-            <label className="flex cursor-pointer flex-col items-center justify-center rounded-[24px] border border-dashed border-teal-300 bg-white px-6 py-10 text-center text-sm text-slate-600 transition hover:border-teal-500 hover:bg-teal-50">
+            <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-teal-300 bg-white px-6 py-10 text-center text-sm text-slate-600 transition hover:border-teal-500 hover:bg-teal-50">
               <span className="text-base font-semibold text-slate-900">Choose files to upload</span>
               <span className="mt-2 max-w-md leading-6">
                 Upload PDF, JPG, JPEG, or PNG files from your device. Maximum 5MB per file.
@@ -461,7 +469,7 @@ export default function Home() {
             ) : null}
           </section>
 
-          <section className="sticky bottom-3 z-20 space-y-4 rounded-[24px] border border-slate-800 bg-slate-950/95 p-4 text-slate-50 shadow-[0_16px_50px_rgba(15,23,42,0.28)] backdrop-blur sm:bottom-4 sm:p-6">
+          <section className="space-y-4 rounded-lg border border-slate-800 bg-slate-950/95 p-4 text-slate-50 shadow-[0_16px_50px_rgba(15,23,42,0.28)] backdrop-blur sm:p-6">
             {errorMessage ? (
               <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
                 {errorMessage}
@@ -496,7 +504,7 @@ export default function Home() {
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <button
-                className="inline-flex h-12 w-full items-center justify-center rounded-full border border-white/20 px-6 text-sm font-semibold text-white transition hover:border-emerald-300 hover:text-emerald-300 disabled:cursor-not-allowed disabled:border-slate-500 disabled:bg-slate-900 disabled:text-slate-400 sm:w-auto"
+                className="inline-flex h-12 w-full items-center justify-center rounded-lg border border-white/20 px-6 text-sm font-semibold text-white transition hover:border-emerald-300 hover:text-emerald-300 disabled:cursor-not-allowed disabled:border-slate-500 disabled:bg-slate-900 disabled:text-slate-400 sm:w-auto"
                 type="submit"
                 disabled={!isPaymentActionEnabled}
               >
