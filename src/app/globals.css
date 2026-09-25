@@ -39,7 +39,9 @@ a {
   border-radius: 18px;
   border: 1px solid #cbd5e1;
   background: rgba(255, 255, 255, 0.96);
-  padding: 0.95rem 1rem;
+  min-height: 3.25rem;
+  padding: 1rem 1.15rem;
+  font-size: 1rem;
   color: #0f172a;
   outline: none;
   transition:
@@ -50,6 +52,7 @@ a {
 
 .field-input::placeholder {
   color: #94a3b8;
+  font-size: 0.98rem;
 }
 
 .field-input:focus {
