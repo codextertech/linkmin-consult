@@ -297,7 +297,7 @@ export default function Home() {
             </h1>
             <p className="max-w-3xl text-sm leading-7 text-emerald-50/90 sm:text-base">
               This is a confidential form between you and Linkmi Nigeria. Please
-              ensure all inputted information is accurate before submitting your
+              ensure all entered information is accurate before submitting your
               consultation request.
             </p>
           </div>
