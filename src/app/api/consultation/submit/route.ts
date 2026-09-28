@@ -5,8 +5,8 @@ import {
   appendConsultationToSheet,
   createSubmissionId,
   extractConsultationValues,
+  sendAdminNotification,
   uploadFilesToCloudinary,
-  verifyPaystackTransaction,
 } from "@/lib/consultation-server";
 
 export const runtime = "nodejs";
@@ -35,7 +35,6 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const values = extractConsultationValues(formData);
-    const paymentReference = formData.get("paymentReference");
     const files = formData
       .getAll("medicalReports")
       .filter((file): file is File => file instanceof File && file.size > 0);
@@ -46,23 +45,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: validationMessage }, { status: 400 });
     }
 
-    if (typeof paymentReference !== "string" || !paymentReference.trim()) {
-      return NextResponse.json(
-        { message: "Verified consultation payment is required before submission." },
-        { status: 400 },
-      );
-    }
-
-    const payment = await verifyPaystackTransaction(paymentReference);
-
-    if (payment.status !== "success") {
-      return NextResponse.json(
-        { message: "Payment verification did not return a successful status." },
-        { status: 400 },
-      );
-    }
-
     const submissionId = createSubmissionId();
+    const submissionMeta = {
+      amountInKobo: 0,
+      paidAt: null,
+      reference: "no-payment-required",
+      status: "submitted",
+    };
     let uploads: Awaited<ReturnType<typeof uploadFilesToCloudinary>> = [];
 
     try {
@@ -74,14 +63,36 @@ export async function POST(request: Request) {
       });
     }
 
-    const emailSent = false;
+    let emailSent = false;
+
+    try {
+      emailSent = await sendAdminNotification({
+        submissionId,
+        values,
+        uploads,
+        payment: submissionMeta,
+      });
+    } catch (error) {
+      console.error("Consultation admin notification failed", {
+        error: getErrorMessage(error),
+        submissionId,
+      });
+
+      return NextResponse.json(
+        {
+          message: getErrorMessage(error),
+          submissionId,
+        },
+        { status: 500 },
+      );
+    }
 
     try {
       await appendConsultationToSheet({
         submissionId,
         values,
         uploads,
-        payment,
+        payment: submissionMeta,
         emailSent,
       });
     } catch (error) {

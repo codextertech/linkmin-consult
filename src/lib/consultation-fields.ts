@@ -1,3 +1,5 @@
+import { isValidPhoneNumber } from "react-phone-number-input/input";
+
 export type ConsultationFormValues = {
   firstName: string;
   lastName: string;
@@ -20,6 +22,15 @@ export const consultationFieldNames = [
   "medicalDescription",
 ] as const satisfies ReadonlyArray<keyof ConsultationFormValues>;
 
+export const requiredConsultationFieldNames = [
+  "firstName",
+  "lastName",
+  "phoneNumber",
+  "whatsappNumber",
+  "email",
+  "countryOfResidence",
+] as const satisfies ReadonlyArray<keyof ConsultationFormValues>;
+
 export const initialConsultationFormValues: ConsultationFormValues = {
   firstName: "",
   lastName: "",
@@ -31,7 +42,6 @@ export const initialConsultationFormValues: ConsultationFormValues = {
   medicalDescription: "",
 };
 
-export const MAX_PHONE_LENGTH = 15;
 export const MAX_MEDICAL_REPORT_SIZE_BYTES = 5 * 1024 * 1024;
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,7 +59,7 @@ export function countWords(value: string) {
 export function validateConsultationValues(
   values: ConsultationFormValues,
 ): string | null {
-  for (const fieldName of consultationFieldNames) {
+  for (const fieldName of requiredConsultationFieldNames) {
     if (!values[fieldName].trim()) {
       return "Complete all form fields before continuing.";
     }
@@ -59,15 +69,15 @@ export function validateConsultationValues(
     return "Enter a valid email address before continuing.";
   }
 
-  if (!/^\d{1,15}$/.test(values.phoneNumber.trim())) {
-    return "Phone number must contain only digits and be no more than 15 characters.";
+  if (!isValidPhoneNumber(values.phoneNumber.trim())) {
+    return "Enter a valid phone number for the selected country.";
   }
 
-  if (!/^\d{1,15}$/.test(values.whatsappNumber.trim())) {
-    return "WhatsApp number must contain only digits and be no more than 15 characters.";
+  if (!isValidPhoneNumber(values.whatsappNumber.trim())) {
+    return "Enter a valid WhatsApp number for the selected country.";
   }
 
-  if (countWords(values.medicalDescription) > 1000) {
+  if (values.medicalDescription.trim() && countWords(values.medicalDescription) > 1000) {
     return "Medical description must not exceed 1000 words.";
   }
 

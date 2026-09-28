@@ -1,33 +1,154 @@
 "use client";
 
-import type {
-  PaystackCallbacks,
-  PaystackError,
-  default as PaystackConstructor,
-  PaystackTransaction,
-} from "@paystack/inline-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChangeEvent, FormEvent, useState } from "react";
+import PhoneInput, {
+  getCountries,
+  getCountryCallingCode,
+  type Country,
+  type Value,
+} from "react-phone-number-input/input";
+import countryLabels from "react-phone-number-input/locale/en.json";
+import Select, { type SingleValue, type StylesConfig } from "react-select";
 
 import {
   countWords,
   initialConsultationFormValues,
   MAX_MEDICAL_REPORT_SIZE_BYTES,
-  MAX_PHONE_LENGTH,
+  requiredConsultationFieldNames,
   validateConsultationValues,
   type ConsultationFormValues,
 } from "@/lib/consultation-fields";
 
-type PaymentState =
-  | {
-      status: "idle";
-      reference: null;
+type CountryOption = {
+  dialCode: string;
+  flag: string;
+  label: string;
+  name: string;
+  value: Country;
+};
+
+function getFlagEmoji(countryCode: string) {
+  return countryCode
+    .toUpperCase()
+    .replace(/./g, (character) => String.fromCodePoint(127397 + character.charCodeAt(0)));
+}
+
+const COUNTRY_OPTIONS: CountryOption[] = getCountries()
+  .map((code) => {
+    const name = countryLabels[code];
+
+    if (!name) {
+      return null;
     }
-  | {
-      status: "verifying" | "paid";
-      reference: string;
-    };
+
+    return {
+      dialCode: `+${getCountryCallingCode(code)}`,
+      flag: getFlagEmoji(code),
+      label: `${name} (+${getCountryCallingCode(code)})`,
+      name,
+      value: code,
+    } satisfies CountryOption;
+  })
+  .filter((option): option is CountryOption => option !== null)
+  .sort((left, right) => left.name.localeCompare(right.name));
+
+const COUNTRY_CODE_TO_NAME = new Map(
+  COUNTRY_OPTIONS.map((option) => [option.value, option.name]),
+);
+
+const COUNTRY_NAME_TO_CODE = new Map(
+  COUNTRY_OPTIONS.map((option) => [option.name.toLowerCase(), option.value]),
+);
+
+const countrySelectStyles: StylesConfig<CountryOption, false> = {
+  control: (baseStyles, state) => ({
+    ...baseStyles,
+    minHeight: "3.25rem",
+    borderRadius: "12px",
+    borderColor: state.isFocused ? "#0f766e" : "#cbd5e1",
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    boxShadow: state.isFocused ? "0 0 0 4px rgba(15, 118, 110, 0.12)" : "none",
+    paddingLeft: "0.25rem",
+    paddingRight: "0.25rem",
+    transition: "border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease",
+    ":hover": {
+      borderColor: state.isFocused ? "#0f766e" : "#cbd5e1",
+    },
+  }),
+  dropdownIndicator: (baseStyles, state) => ({
+    ...baseStyles,
+    color: state.isFocused ? "#0f766e" : "#64748b",
+    padding: "0 0.5rem",
+  }),
+  indicatorSeparator: () => ({
+    display: "none",
+  }),
+  input: (baseStyles) => ({
+    ...baseStyles,
+    color: "#0f172a",
+    margin: 0,
+    padding: 0,
+  }),
+  menu: (baseStyles) => ({
+    ...baseStyles,
+    border: "1px solid #cbd5e1",
+    borderRadius: "12px",
+    boxShadow: "0 18px 40px rgba(15, 23, 42, 0.14)",
+    overflow: "hidden",
+  }),
+  option: (baseStyles, state) => ({
+    ...baseStyles,
+    backgroundColor: state.isFocused ? "#ecfeff" : "#ffffff",
+    color: "#0f172a",
+    cursor: "pointer",
+    padding: "0.75rem 1rem",
+  }),
+  placeholder: (baseStyles) => ({
+    ...baseStyles,
+    color: "#94a3b8",
+  }),
+  singleValue: (baseStyles) => ({
+    ...baseStyles,
+    color: "#0f172a",
+  }),
+  valueContainer: (baseStyles) => ({
+    ...baseStyles,
+    minHeight: "3.25rem",
+    padding: "0.25rem 0.75rem",
+  }),
+};
+
+function getCountryCodeFromResidence(countryOfResidence: string) {
+  return COUNTRY_NAME_TO_CODE.get(countryOfResidence.trim().toLowerCase());
+}
+
+function getCountryName(country: Country) {
+  return COUNTRY_CODE_TO_NAME.get(country) ?? country;
+}
+
+function buildPhonePlaceholder(selectedCountry: Country | undefined, label: string) {
+  if (!selectedCountry) {
+    return `Select country, then enter your ${label.toLowerCase()}`;
+  }
+
+  const option = COUNTRY_OPTIONS.find((countryOption) => countryOption.value === selectedCountry);
+
+  return option ? `${option.dialCode} ${label}` : `Enter your ${label.toLowerCase()}`;
+}
+
+function renderCountryOption(option: CountryOption) {
+  return (
+    <div className="flex items-center gap-3">
+      <span aria-hidden="true" className="text-base leading-none">
+        {option.flag}
+      </span>
+      <span>{option.name}</span>
+      <span className="text-sm text-slate-500">{option.dialCode}</span>
+    </div>
+  );
+}
 
 export default function Home() {
   const router = useRouter();
@@ -37,39 +158,32 @@ export default function Home() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [sameAsPhone, setSameAsPhone] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
-  const [paymentState, setPaymentState] = useState<PaymentState>({
-    status: "idle",
-    reference: null,
-  });
-  const [isInitializingPayment, setIsInitializingPayment] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const selectedCountry = getCountryCodeFromResidence(formState.countryOfResidence);
+  const selectedCountryOption = COUNTRY_OPTIONS.find(
+    (countryOption) => countryOption.value === selectedCountry,
+  ) ?? null;
   const medicalDescriptionWordCount = countWords(formState.medicalDescription);
   const formValidationMessage = validateConsultationValues(formState);
-  const isFormComplete = Object.values(formState).every(
-    (value) => value.trim().length > 0,
+  const isFormComplete = requiredConsultationFieldNames.every(
+    (fieldName) => formState[fieldName].trim().length > 0,
   );
-  const isPaymentActionEnabled =
+  const isSubmissionEnabled =
     isFormComplete &&
     !formValidationMessage &&
     acknowledged &&
-    !isInitializingPayment &&
-    !isSubmitting &&
-    paymentState.status !== "verifying";
+    !isSubmitting;
 
   const handleInputChange = (
-    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     const { name } = event.target;
     let { value } = event.target;
 
     if (name === "medicalDescription" && countWords(value) > 1000) {
       return;
-    }
-
-    if (name === "phoneNumber" || name === "whatsappNumber") {
-      value = value.replace(/\D/g, "").slice(0, MAX_PHONE_LENGTH);
     }
 
     if (name === "email") {
@@ -82,8 +196,32 @@ export default function Home() {
         [name]: value,
       };
 
-      if (sameAsPhone && name === "phoneNumber") {
-        nextState.whatsappNumber = value;
+      return nextState;
+    });
+  };
+
+  const handleCountryChange = (nextCountryOption: SingleValue<CountryOption>) => {
+    const nextCountryName = nextCountryOption?.name ?? "";
+
+    setFormState((currentState) => ({
+      ...currentState,
+      countryOfResidence: nextCountryName,
+    }));
+  };
+
+  const handlePhoneChange = (
+    fieldName: "phoneNumber" | "whatsappNumber",
+    nextValue?: Value,
+  ) => {
+    setFormState((currentState) => {
+      const resolvedValue = nextValue ?? "";
+      const nextState = {
+        ...currentState,
+        [fieldName]: resolvedValue,
+      };
+
+      if (sameAsPhone && fieldName === "phoneNumber") {
+        nextState.whatsappNumber = resolvedValue;
       }
 
       return nextState;
@@ -116,7 +254,7 @@ export default function Home() {
     setSelectedFiles(nextFiles);
   };
 
-  const submitConsultation = async (paymentReference: string) => {
+  const submitConsultation = async () => {
     setIsSubmitting(true);
 
     const body = new FormData();
@@ -125,7 +263,6 @@ export default function Home() {
       body.append(key, value);
     });
 
-    body.append("paymentReference", paymentReference);
     selectedFiles.forEach((file) => body.append("medicalReports", file));
 
     const response = await fetch("/api/consultation/submit", {
@@ -145,112 +282,7 @@ export default function Home() {
     setSelectedFiles([]);
     setSameAsPhone(false);
     setAcknowledged(false);
-    setPaymentState({ status: "idle", reference: null });
     router.push(`/thank-you?name=${encodeURIComponent(formState.firstName)}`);
-  };
-
-  const verifyPayment = async (reference: string) => {
-    setPaymentState({ status: "verifying", reference });
-
-    const response = await fetch(
-      `/api/paystack/verify?reference=${encodeURIComponent(reference)}`,
-      {
-        cache: "no-store",
-      },
-    );
-    const payload = (await response.json()) as {
-      message?: string;
-      reference?: string;
-      status?: string;
-    };
-
-    if (!response.ok || payload.status !== "success" || !payload.reference) {
-      throw new Error(payload.message ?? "Unable to verify consultation payment.");
-    }
-
-    setPaymentState({ status: "paid", reference: payload.reference });
-  };
-
-  const handleConsultFee = async () => {
-    try {
-      setErrorMessage(null);
-
-      if (formValidationMessage) {
-        setErrorMessage(formValidationMessage);
-        return;
-      }
-
-      setIsInitializingPayment(true);
-
-      const response = await fetch("/api/paystack/initialize", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formState.email,
-          firstName: formState.firstName,
-          lastName: formState.lastName,
-        }),
-      });
-      const payload = (await response.json()) as {
-        accessCode?: string;
-        message?: string;
-        publicKey?: string;
-        reference?: string;
-      };
-
-      if (
-        !response.ok ||
-        !payload.accessCode ||
-        !payload.publicKey ||
-        !payload.reference
-      ) {
-        throw new Error(payload.message ?? "Unable to start consultation payment.");
-      }
-
-      const { default: PaystackPop } = (await import(
-        "@paystack/inline-js"
-      )) as {
-        default: typeof PaystackConstructor;
-      };
-
-      const popup = new PaystackPop();
-
-      const callbacks: PaystackCallbacks = {
-        onSuccess: async (paymentResponse: PaystackTransaction) => {
-          try {
-            await verifyPayment(paymentResponse.reference);
-            setIsInitializingPayment(false);
-            await submitConsultation(paymentResponse.reference);
-          } catch (error) {
-            setErrorMessage(
-              error instanceof Error
-                ? error.message
-                : "Unable to verify consultation payment.",
-            );
-          } finally {
-            setIsInitializingPayment(false);
-          }
-        },
-        onCancel: () => {
-          setIsInitializingPayment(false);
-        },
-        onError: (error: PaystackError) => {
-          setPaymentState({ status: "idle", reference: null });
-          setErrorMessage(error.message ?? "Unable to start consultation payment.");
-          setIsInitializingPayment(false);
-        },
-      };
-
-      popup.resumeTransaction(payload.accessCode, callbacks);
-    } catch (error) {
-      setPaymentState({ status: "idle", reference: null });
-      setErrorMessage(
-        error instanceof Error ? error.message : "Unable to start consultation payment.",
-      );
-      setIsInitializingPayment(false);
-    }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -269,12 +301,7 @@ export default function Home() {
         return;
       }
 
-      if (paymentState.status === "paid" && paymentState.reference) {
-        await submitConsultation(paymentState.reference);
-        return;
-      }
-
-      await handleConsultFee();
+      await submitConsultation();
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Unable to submit consultation.",
@@ -330,15 +357,53 @@ export default function Home() {
             </label>
 
             <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Country of Residence <span className="text-red-600">*</span></span>
+              <Select<CountryOption, false>
+                aria-label="Country of residence"
+                formatOptionLabel={renderCountryOption}
+                inputId="country-of-residence"
+                instanceId="country-of-residence"
+                isSearchable
+                name="countryOfResidence"
+                noOptionsMessage={({ inputValue }) =>
+                  inputValue ? "No matching countries" : "No countries available"
+                }
+                options={COUNTRY_OPTIONS}
+                placeholder="Type NI, IN, US or a country name"
+                styles={countrySelectStyles}
+                value={selectedCountryOption}
+                filterOption={({ data }, inputValue) => {
+                  const query = inputValue.trim().toLowerCase();
+
+                  if (!query) {
+                    return true;
+                  }
+
+                  const normalizedDialCode = data.dialCode.replace("+", "");
+                  const normalizedQuery = query.replace("+", "");
+
+                  return (
+                    data.name.toLowerCase().startsWith(query) ||
+                    data.value.toLowerCase().startsWith(query) ||
+                    normalizedDialCode.startsWith(normalizedQuery)
+                  );
+                }}
+                onChange={handleCountryChange}
+              />
+            </label>
+
+            <label className="space-y-2">
               <span className="text-sm font-medium text-slate-700">Phone Number <span className="text-red-600">*</span></span>
-              <input
+              <PhoneInput
                 className="field-input"
-                type="tel"
-                inputMode="numeric"
-                name="phoneNumber"
-                placeholder="Enter your phone number"
-                value={formState.phoneNumber}
-                onChange={handleInputChange}
+                autoComplete="tel"
+                country={selectedCountry}
+                disabled={!selectedCountry}
+                international={selectedCountry ? true : undefined}
+                placeholder={buildPhonePlaceholder(selectedCountry, "Phone number")}
+                value={formState.phoneNumber || undefined}
+                withCountryCallingCode={selectedCountry ? true : undefined}
+                onChange={(value) => handlePhoneChange("phoneNumber", value)}
                 required
               />
             </label>
@@ -346,15 +411,16 @@ export default function Home() {
             <div className="space-y-3">
               <label className="space-y-2">
                 <span className="text-sm font-medium text-slate-700">WhatsApp Number <span className="text-red-600">*</span></span>
-                <input
+                <PhoneInput
                   className="field-input"
-                  type="tel"
-                  inputMode="numeric"
-                  name="whatsappNumber"
-                  placeholder="Enter your WhatsApp number"
-                  value={formState.whatsappNumber}
-                  onChange={handleInputChange}
-                  disabled={sameAsPhone}
+                  autoComplete="tel"
+                  country={selectedCountry}
+                  disabled={!selectedCountry || sameAsPhone}
+                  international={selectedCountry ? true : undefined}
+                  placeholder={buildPhonePlaceholder(selectedCountry, "WhatsApp number")}
+                  value={formState.whatsappNumber || undefined}
+                  withCountryCallingCode={selectedCountry ? true : undefined}
+                  onChange={(value) => handlePhoneChange("whatsappNumber", value)}
                   required
                 />
               </label>
@@ -382,18 +448,6 @@ export default function Home() {
                 required
               />
             </label>
-
-            <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-700">Country of Residence <span className="text-red-600">*</span></span>
-              <input
-                className="field-input"
-                name="countryOfResidence"
-                placeholder="Enter your country of residence"
-                value={formState.countryOfResidence}
-                onChange={handleInputChange}
-                required
-              />
-            </label>
           </section>
 
           <section className="space-y-5 rounded-lg border border-slate-200 bg-slate-50/80 p-5 sm:p-6">
@@ -402,7 +456,7 @@ export default function Home() {
                 Medical Condition
               </p>
               <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
-                Brief descriptions of Medication condition
+                Brief descriptions of Medical condition
               </h2>
               <p className="text-sm leading-6 text-slate-600">
                 Share enough detail for the medical team to understand your current
@@ -411,20 +465,19 @@ export default function Home() {
             </div>
 
             <label className="space-y-2">
-              <span className="text-sm font-medium text-slate-700">Title <span className="text-red-600">*</span></span>
+              <span className="text-sm font-medium text-slate-700">Title</span>
               <input
                 className="field-input"
                 name="medicalCondition"
                 placeholder="State the medical condition"
                 value={formState.medicalCondition}
                 onChange={handleInputChange}
-                required
               />
             </label>
 
             <label className="mt-4 space-y-2">
               <span className="text-sm font-medium text-slate-700">
-                Brief descriptions of Medication condition <span className="text-red-600">*</span>
+                Brief descriptions of Medication condition
               </span>
               <textarea
                 className="field-input min-h-56 resize-y"
@@ -432,7 +485,6 @@ export default function Home() {
                 placeholder="Provide a detailed description of your medical condition"
                 value={formState.medicalDescription}
                 onChange={handleInputChange}
-                required
               />
             </label>
             <p className="text-right text-sm text-slate-500">
@@ -476,9 +528,9 @@ export default function Home() {
               </p>
             ) : null}
 
-            {!isPaymentActionEnabled ? (
+            {!isSubmissionEnabled ? (
               <p className="text-sm leading-6 text-slate-300">
-                Complete every field and accept the terms to activate payment.
+                Complete every required field and accept the terms before submitting.
               </p>
             ) : null}
 
@@ -506,19 +558,10 @@ export default function Home() {
               <button
                 className="inline-flex h-12 w-full items-center justify-center rounded-lg border border-white/20 px-6 text-sm font-semibold text-white transition hover:border-emerald-300 hover:text-emerald-300 disabled:cursor-not-allowed disabled:border-slate-500 disabled:bg-slate-900 disabled:text-slate-400 sm:w-auto"
                 type="submit"
-                disabled={!isPaymentActionEnabled}
+                disabled={!isSubmissionEnabled}
               >
-                {isSubmitting
-                  ? "Submitting..."
-                  : isInitializingPayment
-                    ? "Preparing Payment..."
-                    : paymentState.status === "verifying"
-                      ? "Verifying Payment..."
-                      : paymentState.status === "paid"
-                        ? "Retry Consultation Submission"
-                        : "Click to Pay Consult fee: N5000"}
+                {isSubmitting ? "Submitting..." : "Submit Form"}
               </button>
-              {/* <button type="submit">Submit Consultation</button> */}
             </div>
           </section>
         </form>
