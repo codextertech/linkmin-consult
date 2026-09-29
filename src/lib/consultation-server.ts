@@ -300,46 +300,54 @@ export async function appendConsultationToSheet(args: {
   });
 }
 
-export async function sendAdminNotification(args: {
+function getSubmissionFileLinksHtml(uploads: CloudinaryUploadResult[]) {
+  return uploads.length
+    ? uploads
+        .map((file) => `<li><a href="${file.secureUrl}">${file.originalName}</a></li>`)
+        .join("")
+    : "<li>No files uploaded</li>";
+}
+
+function getSubmissionSummaryHtml(args: {
   submissionId: string;
   values: ConsultationFormValues;
   uploads: CloudinaryUploadResult[];
   payment: PaystackVerification;
 }) {
-  const resendApiKey = process.env.RESEND_API_KEY;
-  const adminEmail = process.env.ADMIN_EMAIL;
-
-  if (!resendApiKey || !adminEmail) {
-    return false;
-  }
-
-  const from = process.env.RESEND_FROM_EMAIL ?? "Linkmi Consult <onboarding@resend.dev>";
-  const fileLinks = args.uploads.length
-    ? args.uploads
-        .map((file) => `<li><a href="${file.secureUrl}">${file.originalName}</a></li>`)
-        .join("")
-    : "<li>No files uploaded</li>";
-
-  const html = `
+  return `
     <div>
-      <h2>New consultation submission</h2>
+      <h2>Consultation submission</h2>
       <p><strong>Submission ID:</strong> ${args.submissionId}</p>
       <p><strong>Name:</strong> ${args.values.firstName} ${args.values.lastName}</p>
       <p><strong>Email:</strong> ${args.values.email}</p>
       <p><strong>Phone:</strong> ${args.values.phoneNumber}</p>
       <p><strong>WhatsApp:</strong> ${args.values.whatsappNumber}</p>
       <p><strong>Country:</strong> ${args.values.countryOfResidence}</p>
-      <p><strong>Medical condition:</strong> ${args.values.medicalCondition}</p>
+      <p><strong>Medical condition:</strong> ${args.values.medicalCondition || "Not provided"}</p>
       <p><strong>Description:</strong></p>
-      <p>${args.values.medicalDescription.replace(/\n/g, "<br />")}</p>
+      <p>${args.values.medicalDescription ? args.values.medicalDescription.replace(/\n/g, "<br />") : "Not provided"}</p>
       <p><strong>Payment reference:</strong> ${args.payment.reference}</p>
       <p><strong>Payment status:</strong> ${args.payment.status}</p>
       <p><strong>Paid at:</strong> ${args.payment.paidAt ?? "n/a"}</p>
       <p><strong>Uploaded reports:</strong></p>
-      <ul>${fileLinks}</ul>
+      <ul>${getSubmissionFileLinksHtml(args.uploads)}</ul>
     </div>
   `;
+}
 
+async function sendResendEmail(args: {
+  to: string[];
+  subject: string;
+  html: string;
+  errorMessage: string;
+}) {
+  const resendApiKey = process.env.RESEND_API_KEY;
+
+  if (!resendApiKey) {
+    return false;
+  }
+
+  const from = process.env.RESEND_FROM_EMAIL ?? "Linkmi Consult <onboarding@resend.dev>";
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -348,9 +356,9 @@ export async function sendAdminNotification(args: {
     },
     body: JSON.stringify({
       from,
-      to: [adminEmail],
-      subject: `New consultation: ${args.values.firstName} ${args.values.lastName}`,
-      html,
+      to: args.to,
+      subject: args.subject,
+      html: args.html,
     }),
   });
 
@@ -358,13 +366,58 @@ export async function sendAdminNotification(args: {
     const payload = await response.text();
 
     throw new Error(
-      payload
-        ? `Unable to send admin notification email: ${payload}`
-        : "Unable to send admin notification email.",
+      payload ? `${args.errorMessage}: ${payload}` : args.errorMessage,
     );
   }
 
   return true;
+}
+
+export async function sendAdminNotification(args: {
+  submissionId: string;
+  values: ConsultationFormValues;
+  uploads: CloudinaryUploadResult[];
+  payment: PaystackVerification;
+}) {
+  const adminEmail = process.env.ADMIN_EMAIL;
+
+  if (!adminEmail) {
+    return false;
+  }
+
+  return sendResendEmail({
+    errorMessage: "Unable to send admin notification email",
+    html: getSubmissionSummaryHtml(args).replace(
+      "<h2>Consultation submission</h2>",
+      "<h2>New consultation submission</h2>",
+    ),
+    subject: `New consultation: ${args.values.firstName} ${args.values.lastName}`,
+    to: [adminEmail],
+  });
+}
+
+export async function sendUserSubmissionCopy(args: {
+  submissionId: string;
+  values: ConsultationFormValues;
+  uploads: CloudinaryUploadResult[];
+  payment: PaystackVerification;
+}) {
+  if (!args.values.email) {
+    return false;
+  }
+
+  return sendResendEmail({
+    errorMessage: "Unable to send user submission copy",
+    html: `
+      <div>
+        <p>Hello ${args.values.firstName},</p>
+        <p>This is a copy of the consultation form you submitted to Linkmi Nigeria.</p>
+        ${getSubmissionSummaryHtml(args)}
+      </div>
+    `,
+    subject: "Copy of your Linkmi consultation submission",
+    to: [args.values.email],
+  });
 }
 
 export function createSubmissionId() {

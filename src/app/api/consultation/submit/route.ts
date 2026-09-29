@@ -6,6 +6,7 @@ import {
   createSubmissionId,
   extractConsultationValues,
   sendAdminNotification,
+  sendUserSubmissionCopy,
   uploadFilesToCloudinary,
 } from "@/lib/consultation-server";
 
@@ -64,9 +65,17 @@ export async function POST(request: Request) {
     }
 
     let emailSent = false;
+    let userCopySent = false;
 
     try {
       emailSent = await sendAdminNotification({
+        submissionId,
+        values,
+        uploads,
+        payment: submissionMeta,
+      });
+
+      userCopySent = await sendUserSubmissionCopy({
         submissionId,
         values,
         uploads,
@@ -115,6 +124,7 @@ export async function POST(request: Request) {
       emailSent,
       message: "Consultation submitted successfully.",
       submissionId,
+      userCopySent,
     });
   } catch (error) {
     console.error("Consultation submission failed", {

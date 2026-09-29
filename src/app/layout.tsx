@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Linkmi Nigeria Consultation",
   description: "Confidential consultation intake form for Linkmi Nigeria.",
+  icons: {
+    icon: "/linkmi.png",
+    shortcut: "/linkmi.png",
+    apple: "/linkmi.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
